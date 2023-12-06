@@ -18,6 +18,7 @@ outdir <- paste0(wdir, "benchmarking/DWLS/")
 if (!dir.exists(outdir)) {
   dir.create(outdir)
 }
+outdir2 <- paste0(wdir, "benchmarking/results")
 
 # Data preparation
 ## Bulk
@@ -52,4 +53,4 @@ rownames(est.prop) <- colnames(tr$sig)
 est.prop = apply(est.prop,2,function(x) ifelse(x < 0, 0, x)) #explicit non-negativity constraint
 est.prop = apply(est.prop,2,function(x) x/sum(x)) #explicit STO constraint
 est.prop <- t(est.prop)
-saveRDS(est.prop, paste0(outdir, "/DWLS_proportions.rds"))
+saveRDS(est.prop, paste0(outdir2, "/DWLS_proportions.rds"))

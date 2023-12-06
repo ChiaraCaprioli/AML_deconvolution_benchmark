@@ -54,6 +54,7 @@ outdir <- paste0(wdir, "benchmarking/MuSiC")
 if (!dir.exists(outdir)) {
   dir.create(outdir)
 }
+outdir2 <- paste0(wdir, "benchmarking/results")
 source(paste0(wdir, "utils.R"))
 ```
 
@@ -255,7 +256,7 @@ L_prop_music <- list(
   "recursive_markers_tpm" = recursive_est_prop_tpm_marker$Est.prop.weighted.cluster
 )
 
-saveRDS(L_prop_music, paste0(outdir, "/MuSiC_proportions.rds"))
+saveRDS(L_prop_music, paste0(outdir2, "/MuSiC_proportions.rds"))
 ```
 
 ## 5. Session info
