@@ -70,7 +70,7 @@ pb_count_tpm <- readRDS(paste0(wdir, "sc_reference/pb_data_sample_es_tpm.rds"))
 bulk.mtx.tpm = exprs(pb_count_tpm)
 
 ### List of bulk matrices
-list_bulk <- list("summed" = bulk.mtx.summed, "tpm" = bulk.mtx.tpm)
+L_bulk <- list("summed" = bulk.mtx.summed, "tpm" = bulk.mtx.tpm)
 
 ## Single-cell
 seurat <- readRDS(paste0(wdir, "sc_reference/sc_reference_sample.rds"))
@@ -86,13 +86,14 @@ selected_markers <- markers %>%
 ## Direct (not dealing with collinearity)
 ```{r}
 direct_est_prop <- BenchmarkMusicDirect(
-  list_bulk = list_bulk, 
+  L_bulk = L_bulk, 
   sc.sce = sce, 
   clusters = "aggregated_lineage2", 
-  markers = unique(selected_markers$gene),
-  samples = "sample",
-  option = "both"
+  L_markers = L_markers,
+  samples = "sample"
   )
+
+saveRDS(direct_est_prop, paste0(outdir2, "/MuSiC.direct_proportions.rds"))
 ```
 
 ## Recursive (dealing with collinearity)
@@ -111,7 +112,7 @@ ggsave(paste0(outdir, "/hierarchies_with_markers.png"), L[[2]], width = 4, heigh
 
 ```{r}
 # no markers
-clusters.type = list(
+clusters.type_no_markers = list(
   C1 = c("Early_myeloid", "HSC_MPP"),
   C2 = c("DC", "Mono", "Late_myeloid"), 
   C3 = c("B_mature", "NK_cells", "T_CD4", "T_CD8"),
@@ -122,14 +123,14 @@ clusters.type = list(
 
 cl.type = as.character(sce$aggregated_lineage2)
 
-for(cl in 1:length(clusters.type)){
-  cl.type[cl.type %in% clusters.type[[cl]]] = names(clusters.type)[cl]
+for(cl in 1:length(clusters.type_no_markers)){
+  cl.type[cl.type %in% clusters.type_no_markers[[cl]]] = names(clusters.type_no_markers)[cl]
 }
-sce$clusterType = factor(cl.type, levels = names(clusters.type))
-grouped <- unlist(clusters.type)
+sce$clusterType_no_markers = factor(cl.type, levels = names(clusters.type_no_markers))
+grouped <- unlist(clusters.type_no_markers)
 
 seurat <- as.Seurat(sce)
-Idents(seurat) <- seurat$clusterType
+Idents(seurat) <- seurat$clusterType_no_markers
 
 group_markers1 <- FindAllMarkers(
   seurat,
@@ -153,32 +154,8 @@ group_markers1 = list(
 )
 names(group_markers1) = c('C1', 'C2', 'C3', 'C4', 'C5', 'C6')
 
-# summed
-recursive_est_prop_summed <- music_prop.cluster(
-  bulk.mtx = list_bulk$summed, 
-  sc.sce = sce, 
-  group.markers = group_markers1, 
-  clusters = 'aggregated_lineage2', 
-  groups = 'clusterType', 
-  samples = 'sample', 
-  clusters.type = clusters.type
-  )
-
-# TPM
-recursive_est_prop_tpm <- music_prop.cluster(
-  bulk.mtx = list_bulk$tpm, 
-  sc.sce = sce, 
-  group.markers = group_markers1, 
-  clusters = 'aggregated_lineage2', 
-  groups = 'clusterType', 
-  samples = 'sample', 
-  clusters.type = clusters.type
-  )
-```
-
-```{r}
 # with markers
-clusters.type = list(
+clusters.type_with_markers = list(
   C1 = c("Early_myeloid", "HSC_MPP"),
   C2 = c("DC", "Mono", "Late_myeloid"), 
   C3 = c("NK_cells", "T_CD4", "T_CD8"),
@@ -189,14 +166,14 @@ clusters.type = list(
 
 cl.type = as.character(sce$aggregated_lineage2)
 
-for(cl in 1:length(clusters.type)){
-  cl.type[cl.type %in% clusters.type[[cl]]] = names(clusters.type)[cl]
+for(cl in 1:length(clusters.type_with_markers)){
+  cl.type[cl.type %in% clusters.type_with_markers[[cl]]] = names(clusters.type_with_markers)[cl]
 }
-sce$clusterType = factor(cl.type, levels = names(clusters.type))
-grouped <- unlist(clusters.type)
+sce$clusterType_with_markers = factor(cl.type, levels = names(clusters.type_with_markers))
+grouped <- unlist(clusters.type_with_markers)
 
 seurat <- as.Seurat(sce)
-Idents(seurat) <- seurat$clusterType
+Idents(seurat) <- seurat$clusterType_with_markers
 
 group_markers2 <- FindAllMarkers(
   seurat,
@@ -220,43 +197,21 @@ group_markers2 = list(
 )
 names(group_markers2) = c('C1', 'C2', 'C3', 'C4', 'C5', 'C6')
 
-# summed
-recursive_est_prop_summed_marker <- music_prop.cluster(
-  bulk.mtx = list_bulk$summed, 
-  sc.sce = sce, 
-  group.markers = group_markers2, 
-  clusters = 'aggregated_lineage2', 
-  groups = 'clusterType', 
-  samples = 'sample', 
-  clusters.type = clusters.type
-  )
-
-# TPM
-recursive_est_prop_tpm_marker <- music_prop.cluster(
-  bulk.mtx = list_bulk$tpm, 
-  sc.sce = sce, 
-  group.markers = group_markers2, 
-  clusters = 'aggregated_lineage2', 
-  groups = 'clusterType', 
-  samples = 'sample', 
-  clusters.type = clusters.type
-  )
+L_markers <- list("no_markers" = group_markers1, "with_markers" = group_markers2)
+L_clusters.type <- list("no_markers" = clusters.type_no_markers, "with_markers" = clusters.type_with_markers)
 ```
 
-# Create and save list with MuSiC results
 ```{r}
-L_prop_music <- list(
-  "direct_no_markers_summed" = direct_est_prop$summed$no_markers$Est.prop.weighted,
-  "direct_no_markers_tpm" = direct_est_prop$tpm$no_markers$Est.prop.weighted,
-  "direct_markers_summed" = direct_est_prop$summed$with_markers$Est.prop.weighted,
-  "direct_markers_tpm" = direct_est_prop$tpm$with_markers$Est.prop.weighted,
-  "recursive_no_markers_summed" = recursive_est_prop_summed$Est.prop.weighted.cluster,
-  "recursive_no_markers_tpm" = recursive_est_prop_tpm$Est.prop.weighted.cluster,
-  "recursive_markers_summed" = recursive_est_prop_summed_marker$Est.prop.weighted.cluster,
-  "recursive_markers_tpm" = recursive_est_prop_tpm_marker$Est.prop.weighted.cluster
-)
+recursive_est_prop <- BenchmarkMusicRecursive(
+  L_bulk = L_bulk, 
+  L_markers = L_markers, 
+  L_clusters.type = L_clusters.type,
+  sc.sce = sce, 
+  clusters = "aggregated_lineage2", 
+  samples = "sample"
+  )
 
-saveRDS(L_prop_music, paste0(outdir2, "/MuSiC_proportions.rds"))
+saveRDS(recursive_est_prop, paste0(outdir2, "/MuSiC.recursive_proportions.rds"))
 ```
 
 ## 5. Session info
