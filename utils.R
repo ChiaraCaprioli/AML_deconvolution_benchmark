@@ -32,50 +32,54 @@ GetPsedoBulkCounts <- function(seurat, cluster_var, sample_var) {
 ###################### MuSiC ######################
 ###################### Benchmark MuSiC direct mode ######################
 
-# requires a named list
-# option can be one of "both", "no_markers" and "with_markers"
-
-BenchmarkMusicDirect <- function(list_bulk, sc.sce, clusters, markers, samples, option) {
+BenchmarkMusicDirect <- function(L_bulk, L_markers, sc.sce, clusters, samples) {
   
-  L_prop_est <- list()
-  for (i in names(list_bulk)) {
+  L_final <- list()
+
+  for (i in names(L_bulk)) {
     
-    if (option == "both" | option == "no_markers") {
-      message(
-        glue::glue(
-          "{format(Sys.time(), '[%Y-%m-%d %H:%M:%S]')} Running MuSiC with direct mode, {i} counts and no markers"
+    L_prop <- list()
+    for (m in names(L_markers)) {
+      if (m == "no_markers") {
+        message(
+          glue::glue(
+            "{format(Sys.time(), '[%Y-%m-%d %H:%M:%S]')} Running MuSiC with direct mode, {i} counts and no markers"
+          )
         )
-      )
-      direct_est_prop_no_markers <- music_prop(
-        bulk.mtx = list_bulk[[i]], 
-        sc.sce = sce, 
-        markers = NULL,
-        clusters = clusters,
-        samples = samples,
-        verbose = F
-      )
-      L_prop_est[[i]][["no_markers"]] <- direct_est_prop_no_markers
-    }
-    
-    if (option == "both" | option == "with_markers") {
+      }
+      if (m == "with_markers") {
         message(
           glue::glue(
             "{format(Sys.time(), '[%Y-%m-%d %H:%M:%S]')} Running MuSiC with direct mode, {i} counts and markers"
           )
         )
-      direct_est_prop_markers <- music_prop(
-        bulk.mtx = list_bulk[[i]], 
+      }
+      
+      est.prop <- music_prop(
+        bulk.mtx = L_bulk[[i]], 
         sc.sce = sce, 
-        markers = markers,
-        clusters = clusters,
+        markers = L_markers[[m]],
+        clusters = clusters, 
         samples = samples,
         verbose = F
       )
-      L_prop_est[[i]][["with_markers"]] <- direct_est_prop_markers
-      }
+      
+      names(est.prop)[1] <- paste(i,m,sep = "_")
+      L_prop[[m]] <- est.prop[1]
+    }
+    L_final[[i]] <- L_prop
   }
-  return(L_prop_est)
+  L_save <- do.call(c, unlist(L_final, recursive = F, use.names = T))
+  L_names <- list()
+  for (i in names(L_save)) {
+    x = paste(word(i, 1, sep = fixed('.')), word(i, 2, sep = fixed('.')), sep = ".")
+    L_names[[i]] <- x
   }
+  names(L_save) <- unlist(L_names)
+  
+  return(L_save)
+  
+}
 
 ###################### Get cell type hierarchical clusters ######################
 GetCellTypeHierarchies <- function(x, clusters, markers, samples, option) {
@@ -154,7 +158,65 @@ GetCellTypeHierarchies <- function(x, clusters, markers, samples, option) {
   return(L_plots)
 }
 
+###################### Benchmark MuSiC recursive mode ######################
+
+BenchmarkMusicRecursive <- function(L_bulk, L_markers, L_clusters.type, sc.sce, clusters, samples) {
+  
+  L_final <- list()
+  
+  for (i in names(L_bulk)) {
+    
+    L_prop <- list()
+    
+    for (m in names(L_markers)) {
+      if (m == "no_markers") {
+        message(
+          glue::glue(
+            "{format(Sys.time(), '[%Y-%m-%d %H:%M:%S]')} Running MuSiC with recursive mode, {i} counts and no markers"
+          )
+        )
+      }
+      if (m == "with_markers") {
+        message(
+          glue::glue(
+            "{format(Sys.time(), '[%Y-%m-%d %H:%M:%S]')} Running MuSiC with recursive mode, {i} counts and markers"
+          )
+        )
+      }
+      
+      groups = paste0("clusterType_", m)
+      
+      est.prop <- music_prop.cluster(
+        bulk.mtx = L_bulk[[i]], 
+        sc.sce = sce, 
+        clusters = clusters, 
+        samples = samples,
+        group.markers = L_markers[[m]], 
+        groups = paste0("clusterType_", m), 
+        clusters.type = L_clusters.type[[m]],
+        verbose = F
+      )
+      
+      names(est.prop)[1] <- paste(i,m,sep = "_")
+      L_prop[[m]] <- est.prop[1]
+    }
+    L_final[[i]] <- L_prop
+  }
+  
+  L_save <- do.call(c, unlist(L_final, recursive = F, use.names = T))
+  L_names <- list()
+  for (i in names(L_save)) {
+    x = paste(word(i, 1, sep = fixed('.')), word(i, 2, sep = fixed('.')), sep = ".")
+    L_names[[i]] <- x
+    }
+  names(L_save) <- unlist(L_names)
+  
+  return(L_save)
+
+}
+
 ###################### CIBERSORTx ######################
+###################### Prepare signature matrix ######################
 SigMatrixCibersortx <- function(seurat, label) {
   sig_matrix <- as.matrix(GetAssayData(seurat, slot = "count"))
   colnames(sig_matrix) <- as.character(seurat@meta.data[[label]])
@@ -163,6 +225,7 @@ SigMatrixCibersortx <- function(seurat, label) {
   return(sig_matrix)
 }
 
+###################### Prepare mixture matrix ######################
 MixMatrixPB <- function(pb_counts) {
   mix_matrix <- pb_counts
   mix_matrix <- cbind(rownames(mix_matrix), mix_matrix)
@@ -170,6 +233,20 @@ MixMatrixPB <- function(pb_counts) {
   return(mix_matrix)
 } 
 
+###################### Benchmarking ######################
+LoadDeconvolutionResults <- function(path) {
+  files <-  paste0(path, list.files(path, pattern = "proportions"))
+  L_prop <- lapply(files, function(x){
+    res <- readRDS(x)
+  })
+  names(L_prop) <- gsub("_.*$", "", basename(files))
+  return(L_prop)
+}
 
- 
+
+
+
+
+
+
 
