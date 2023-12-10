@@ -215,6 +215,59 @@ BenchmarkMusicRecursive <- function(L_bulk, L_markers, L_clusters.type, sc.sce, 
 
 }
 
+###################### BisqueRNA ######################
+###################### Benchmark BisqueRNA (reference-based decomposition) ######################
+BenchmarkBisqueRefBased <- function(L_bulk, sc.eset, L_markers) {
+  
+  L_final <- list()
+  
+  for (i in names(L_bulk)) {
+    
+    L_prop <- list()
+    for (m in names(L_markers)) {
+      if (m == "no_markers") {
+        message(
+          glue::glue(
+            "{format(Sys.time(), '[%Y-%m-%d %H:%M:%S]')} Running Bisque with {i} counts and no markers"
+          )
+        )
+      }
+      if (m == "with_markers") {
+        message(
+          glue::glue(
+            "{format(Sys.time(), '[%Y-%m-%d %H:%M:%S]')} Running Bisque with {i} counts and markers"
+          )
+        )
+      }
+      
+      est.prop <- ReferenceBasedDecomposition(
+        bulk.eset = L_bulk[[i]],
+        sc.eset = sc.eset,
+        markers = L_markers[[m]],
+        cell.types = "cellType",
+        subject.names = "SubjectName",
+        use.overlap = F,
+        verbose = F,
+        old.cpm = TRUE
+      )
+      
+      names(est.prop)[1] <- paste(i,m,sep = "_")
+      L_prop[[m]] <- est.prop[1]
+    }
+    L_final[[i]] <- L_prop
+  }
+  L_save <- do.call(c, unlist(L_final, recursive = F, use.names = T))
+  L_names <- list()
+  for (i in names(L_save)) {
+    x = paste(word(i, 1, sep = fixed('.')), word(i, 2, sep = fixed('.')), sep = ".")
+    L_names[[i]] <- x
+  }
+  names(L_save) <- unlist(L_names)
+  
+  return(L_save)
+  
+}
+
 ###################### CIBERSORTx ######################
 ###################### Prepare signature matrix ######################
 SigMatrixCibersortx <- function(seurat, label) {
