@@ -20,7 +20,7 @@ To pick the deconvolution method with the highest performance when using our spe
 For now, the following methods are implemented:
 - ```MuSiC```
 - ```DWLS```
-- - ```Bisque``` 
+- ```Bisque``` 
 - ```CIBERSORTx``` (coming soon)
 
 Pseudo-bulk data are created from raw scRNA-seq counts treated in two distinct ways, which are subject to benchmarking as well: 
