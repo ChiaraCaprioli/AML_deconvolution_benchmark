@@ -274,6 +274,7 @@ BenchmarkBisqueRefBased <- function(L_bulk, sc.eset, L_markers) {
 SigMatrixCibersortx <- function(seurat, label) {
   sig_matrix <- as.matrix(GetAssayData(seurat, slot = "count"))
   colnames(sig_matrix) <- as.character(seurat@meta.data[[label]])
+  sig_matrix <- sig_matrix[,order(seurat@meta.data[[label]],colnames(sig_matrix))] # reorder columns according to labels/levels
   sig_matrix <- cbind(rownames(sig_matrix), sig_matrix)
   colnames(sig_matrix)[1] <- "gene_name"
   return(sig_matrix)
@@ -288,6 +289,7 @@ MixMatrixPB <- function(pb_counts) {
 } 
 
 ###################### Benchmarking ######################
+###################### Load results from different methods ######################
 LoadDeconvolutionResults <- function(path) {
   files <-  paste0(path, list.files(path, pattern = "proportions"))
   L_prop <- lapply(files, function(x){
@@ -296,11 +298,3 @@ LoadDeconvolutionResults <- function(path) {
   names(L_prop) <- gsub("_.*$", "", basename(files))
   return(L_prop)
 }
-
-
-
-
-
-
-
-
