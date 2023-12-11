@@ -94,4 +94,5 @@ tidyverse
 - Zeng AGX et al., A cellular hierarchy framework for understanding heterogeneity and predicting drug response in acute myeloid leukemia. https://doi.org/10.1038/s41591-022-01819-x
 - Wang X et al., Bulk tissue cell type deconvolution with multi-subject single-cell expression reference. <https://doi.org/10.1038/s41467-018-08023-x>
 - Tsoucas D et al., Accurate estimation of cell-type composition from gene expression data. https://doi.org/10.1038/s41467-019-10802-z
-- Jew B et al., Accurate estimation of cell composition in bulk expression through robust integration of single-cell information. https://doi.org/10.1038/s41467-020-15816-6 
+- Jew B et al., Accurate estimation of cell composition in bulk expression through robust integration of single-cell information. https://doi.org/10.1038/s41467-020-15816-6
+- Steen CB et al., Profiling cell type abundance and expression in bulk tissues with CIBERSORTx. https://cibersortx.stanford.edu/about.php
