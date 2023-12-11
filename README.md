@@ -75,6 +75,8 @@ loaded via a namespace (and not attached):
 
 ```
 Biobase
+BisqueRNA
+ComplexHeatmap
 DWLS
 ggdendro
 ggpubr
