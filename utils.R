@@ -250,7 +250,8 @@ BenchmarkBisqueRefBased <- function(L_bulk, sc.eset, L_markers) {
         verbose = F,
         old.cpm = TRUE
       )
-      
+    
+      est.prop[1] <- list(t(est.prop[[1]])) # set samples as rows to be consistent with other tools
       names(est.prop)[1] <- paste(i,m,sep = "_")
       L_prop[[m]] <- est.prop[1]
     }
