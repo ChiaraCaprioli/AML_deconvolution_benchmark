@@ -21,7 +21,7 @@ For now, the following methods are implemented:
 - ```MuSiC```
 - ```DWLS```
 - ```Bisque``` 
-- ```CIBERSORTx``` (coming soon)
+- ```CIBERSORTx``` 
 
 Pseudo-bulk data are created from raw scRNA-seq counts treated in two distinct ways, which are subject to benchmarking as well: 
 - sum by sample
