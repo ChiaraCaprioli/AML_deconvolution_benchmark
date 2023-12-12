@@ -1,0 +1,267 @@
+---
+title: "Prepare a single-cell reference as input for different cell type deconvolution"
+author: "Chiara Caprioli"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+   code: hide
+---
+
+```{r}
+# Libraries
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(Seurat)
+  library(SingleCellExperiment)
+  library(rsample)
+  library(scuttle)
+  library(ggpubr)
+  library(MuSiC)
+})
+
+# Utils
+outdir <- "~/Desktop/working/bulk_ct_deconvolution/01_prepare_input/"
+sc_object <- readRDS("~/Desktop/archive/stuff/seurat_k.rds")
+load("~/Desktop/archive/SCM-seq/utils/settings.RData")
+source("~/Desktop/working/bulk_ct_deconvolution/utils.R")
+```
+
+## Table of Contents
+
+1.  [Select AML samples](##Select%20AML%20samples)
+2.  [Downsampling](##Downsampling)
+3.  [Remove rare cell types and filter genes](##Remove%20rare%20cell%20types%20and%20filter%20genes)
+4.  [Compute marker genes by cell type](##Compute%20marker%20genes%20by%20cell%20type)
+5.  [Create pseudo-bulk data for benchmarking](##Create%20pseudo-bulk%20data%20for%20benchmarking)
+6.  [Session info](##Session%20info)
+7.  [References](##References)
+
+## 1. Select AML samples
+
+As our primary objective is estimating cell type proportions from bulk RNA of AML samples and the reference matrix should include all relevant cell types hypothetically present in the mixture, we build a sc reference which only includes AML cells; further solutions may be explored in the future (i.e., providing a mixture of AML-like and healthy-like cell types).
+
+```{r}
+# Get AML samples
+sc_object <- sc_object[,which(sc_object$cohort != "hBM")]
+sc_object$sample <- factor(
+  sc_object$sample,
+  levels = levels(sc_object$sample)[which(levels(sc_object$sample) %in% sc_object$sample)]
+)
+```
+
+## 2. Downsampling
+To deal with potential memory issues while using some deconvolution methods (i.e., CIBERSORTx), we downsample the single-cell reference to a test set keeping the same cell type proportions.
+```{r}
+# Downsample reference to test set 
+split <- initial_split(
+  sc_object@meta.data, 
+  prop = 0.5, 
+  strata = "aggregated_lineage2"
+)
+
+test_set_data <- testing(split)
+
+test_set <- sc_object[,which(colnames(sc_object) %in% rownames(test_set_data))]
+```
+
+```{r, out.height="50%", out.width="50%", fig.align="center"}
+# Check cell type proportions across samples in test and original sets
+ct_test <- table(test_set$aggregated_lineage2, as.character(test_set$sample)) 
+ct_test <- t(ct_test)/colSums(ct_test)
+ct_test <- as.data.frame(ct_test) %>% 
+  mutate(set = "test")
+
+ct_whole <- table(sc_object$aggregated_lineage2, as.character(sc_object$sample)) 
+ct_whole <- t(ct_whole)/colSums(ct_whole)
+ct_whole <- as.data.frame(ct_whole) %>% 
+  mutate(set = "whole")
+
+merged <- rbind(ct_test, ct_whole)
+colnames(merged) <- c("sample", "lineage", "frequency", "set")
+merged <- merged %>%
+  pivot_wider(names_from = set, values_from = frequency)
+
+ggscatter(
+  data = merged,
+  x = "test",
+  y = "whole",
+  facet.by = "lineage",
+  xlab = "Frequency in test set",
+  ylab = "Frequency in original set",
+  color = "sample",
+  palette = colors$sample,
+  cor.coef = T,
+  coef.method = "spearman",
+  add = "reg.line",
+  fullrange = T,
+  add.params = list(color = "blue", linetype = 2, size = 0.3)
+) + 
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    aspect.ratio = 1,
+    strip.text = element_text(face = "bold")
+  )
+ggsave(paste0(outdir, "celltype_freq_test_whole.png"), width = 10, height = 9)
+```
+
+## 3. Remove rare cell types and filter genes
+
+We polish our single-cell reference by removing rare cell types (which are typically a hurdle for deconvolution tasks) and genes with zero expression and/or not present in the mixture.
+
+```{r, out.height="50%", out.width="50%", fig.align="center"}
+# Remove rare cell types
+tab <- test_set@meta.data %>%
+  group_by(aggregated_lineage2) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) 
+write.csv(tab, paste0(outdir, "sc_celltype_count.csv"), row.names = F)
+
+tab %>%
+  mutate(aggregated_lineage2 = fct_reorder(aggregated_lineage2, count, .desc = T)) %>%
+  ggplot( aes(x = aggregated_lineage2, y = count)) +
+  geom_bar(stat="identity", width = 0.75, color = "black", fill = "lightgrey", linewidth = 0.3) +
+  geom_hline(yintercept = 100, color = "red", linetype = 2) +
+  annotate(
+    geom = "text",
+    label = "n cells = 100",
+    x = 14, y = 450,
+    size = 3
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(color = "black"),
+    axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+    aspect.ratio = 1,
+    axis.title.x = element_blank()
+  )
+
+ggsave(paste0(outdir, "sc_celltype_count.png"), width = 5, height = 5)
+
+test_set <- test_set[,which(!test_set$aggregated_lineage2 %in% c("MK", "T_gd", "Stromal"))]
+test_set$aggregated_lineage2 <- factor(
+  test_set$aggregated_lineage2,
+  levels = levels(test_set$aggregated_lineage2)[which(levels(test_set$aggregated_lineage2) %in% test_set$aggregated_lineage2)]
+)
+
+# Filter genes that are shared across bulk and single-cell data and have non-zero expression
+bulk_data <- readRDS("~/Desktop/working/GDC_data/TCGA-LAML/TCGA-LAML_gex.RData")
+# to do: also check BeatAML
+bulk_genes <- bulk_data@rowRanges$gene_name
+sc_genes <- intersect(rownames(test_set)[rowSums(test_set) > 0], bulk_genes)
+test_set <- test_set[sc_genes,]
+```
+
+```{r}
+# Save sc reference as seurat object
+saveRDS(test_set, paste0(outdir, "sc_reference_sample.rds"))
+```
+
+```{r}
+# Save sc reference as ExpressionSet object
+test_set <- readRDS("~/Desktop/working/bulk_ct_deconvolution/sc_reference/sc_reference_sample.rds")
+
+sc.pheno <- data.frame(
+  check.names = F, 
+  check.rows = F,
+  stringsAsFactors = F,
+  row.names = colnames(test_set),
+  SubjectName = test_set$sample,
+  cellType = test_set$aggregated_lineage2,
+  SRSF2_status = test_set$cohort
+  )
+
+sc.meta <- data.frame(
+  labelDescription=c("SubjectName","cellType", "cohort"),
+  row.names=c("SubjectName","cellType", "cohort")
+  )
+
+sc_data_es <- ExpressionSet(
+  assayData = as.matrix(test_set@assays$RNA@counts), 
+  phenoData =  new("AnnotatedDataFrame", data = sc.pheno, varMetadata = sc.meta) 
+  ) 
+
+saveRDS(sc_data_es, paste0(outdir, "sc_reference_sample_es.rds")) 
+```
+
+## 4. Compute marker genes by cell type
+
+As some deconvolution methods require feeding preselected markers, we compute marker genes of each cell type.
+
+```{r}
+# Get marker genes by cell type (Wilcoxon) 
+Idents(test_set) <- test_set$aggregated_lineage2 
+
+markers <- FindAllMarkers(
+  test_set,
+  logfc.threshold = 0.25,
+  test.use = "wilcox", 
+  slot = "data", 
+  min.pct = 0.3,  
+  only.pos = TRUE, 
+  min.cells.feature = 3,    
+  min.cells.group = 3
+  ) 
+
+write.csv(markers, paste0(outdir, "sc_ct_markers.csv"), row.names = F) 
+```
+
+## 5. Create pseudo-bulk data for benchmarking
+
+To benchmark how different deconvolution methods perform with our particular sc reference, we create matched pseudo-bulk data (as we currently lack matched bulk RNAseq, which would be the ideal situation).
+We leverage `MuSiC` and `scuttle` functions to obtain different sample-wise aggregations: - matrix of summed counts - matrix of real cell type counts - matrix of TPM counts - matrix of real cell type proportions
+
+```{r}
+# Get sample-wise aggregations
+L_pb <- GetPsedoBulkCounts(seurat = test_set, cluster_var = "aggregated_lineage2", sample_var = "sample")
+saveRDS(L_pb, paste0(outdir, "pb_data_sample.rds")) 
+
+# Save both pseudo-bulk sets as ExpressionSet 
+pheno.matrix <- data.frame(
+  sample = test_set$sample, 
+  SRSF2_status = test_set$cohort) %>%  
+  distinct() 
+rownames(pheno.matrix) <- pheno.matrix$sample 
+metadata <- data.frame(
+  labelDescription = c("sample", "SRSF2_status"),  
+  row.names = c("sample", "SRSF2_status")
+  ) 
+
+## summed counts 
+pb_data_es <- ExpressionSet(
+  assayData = L_pb$bulk.counts, 
+  phenoData =  new("AnnotatedDataFrame", data = pheno.matrix, varMetadata = metadata) 
+  ) 
+saveRDS(pb_data_es, paste0(outdir, "pb_data_sample_es_summed.rds")) 
+
+## TPM counts 
+pb_data_es <- ExpressionSet(
+  assayData = L_pb$bulk.counts.tpm,  
+  phenoData =  new("AnnotatedDataFrame", data = pheno.matrix, varMetadata = metadata)
+  ) 
+saveRDS(pb_data_es, paste0(outdir, "pb_data_sample_es_tpm.rds")) 
+```
+
+
+```{r}
+# double-check counts..
+
+x = rowMeans(L_pb$bulk.counts)
+y = rowMeans(L_pb$bulk.counts.tpm)
+cor.test(x,y, method = "spearman", exact = F)
+plot(x,y)
+```
+
+
+## 6. Session info
+```{r}
+sessionInfo()
+```
+
+## 7. References {#references}
+
+-   Avila Cobos F et al., Benchmarking of cell type deconvolution pipelines for transcriptomics data. <https://doi.org/10.1038/s41467-020-19015-1>
+-   Avila Cobos F et al., Effective methods for bulk RNA-seq deconvolution using scnRNA-seq transcriptomes. <https://doi.org/10.1186/s13059-023-03016-6>
+-   Wang X et al., Bulk tissue cell type deconvolution with multi-subject single-cell expression reference. <https://doi.org/10.1038/s41467-018-08023-x>
