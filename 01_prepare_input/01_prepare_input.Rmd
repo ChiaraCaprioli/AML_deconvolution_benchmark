@@ -34,7 +34,6 @@ source("~/Desktop/working/bulk_ct_deconvolution/utils.R")
 4.  [Compute marker genes by cell type](##Compute%20marker%20genes%20by%20cell%20type)
 5.  [Create pseudo-bulk data for benchmarking](##Create%20pseudo-bulk%20data%20for%20benchmarking)
 6.  [Session info](##Session%20info)
-7.  [References](##References)
 
 ## 1. Select AML samples
 
@@ -259,9 +258,3 @@ plot(x,y)
 ```{r}
 sessionInfo()
 ```
-
-## 7. References {#references}
-
--   Avila Cobos F et al., Benchmarking of cell type deconvolution pipelines for transcriptomics data. <https://doi.org/10.1038/s41467-020-19015-1>
--   Avila Cobos F et al., Effective methods for bulk RNA-seq deconvolution using scnRNA-seq transcriptomes. <https://doi.org/10.1186/s13059-023-03016-6>
--   Wang X et al., Bulk tissue cell type deconvolution with multi-subject single-cell expression reference. <https://doi.org/10.1038/s41467-018-08023-x>
