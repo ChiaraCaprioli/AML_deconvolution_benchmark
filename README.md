@@ -1,9 +1,9 @@
 # AML_deconvolution_benchmark
-🛠️ under construction
 
 ## Contents
 - [Overview](#Overview)
 - [Input](#Input)
+- [Output](#Output)
 - [Folder structure](#Folder-structure)
 - [Required packages](#Required-packages)
 - [References](#References)
@@ -27,29 +27,35 @@ Pseudo-bulk data are created from raw scRNA-seq counts treated in two distinct w
 - sum by sample
 - TPM transformation by sample
 
-Estimated vs real cell type proportions are compared across modalities using different metrics:
-- root-mean-squared deviation (RMSD)
-- mean absolute difference (mAD)
-- Pearson’s correlation (R)
-
 ## Input
 A ```Seurat``` object. Metadata should include *sample information* and *cell type labels* from previous annotation with any method of choice.
 
+## Output
+Output for each deconvolution method consists of a list of matrices with estimated cell type proportions by sample for each mode (e.g., summed/tpm counts, with/without markers, etc).
+
+Estimated vs real cell type proportions are then compared across modalities using different metrics:
+- root-mean-squared deviation (RMSD)
+- mean absolute difference (mAD)
+- Pearson’s correlation (R)
+  
 ## Folder structure
 ```
 AML_deconvolution_benchmark/
-├── benchmarking
-│   └── results
-├── deconvolution
-│   ├── Bisque
+├── 01_prepare_input
+│   └── 01_prepare_input.Rmd
+├── 02_deconvolution
+│   ├── BisqueRNA
 │   │   └── BisqueRNA.R
+│   ├── CIBERSORTx
+│   │   └── CIBERSORTx.R
 │   ├── DWLS
 │   │   └── DWLS.R
 │   ├── MuSiC
 │   │   └── MuSiC.Rmd
 │   └── results
-├── sc_reference
-│   └── build_sc_reference.Rmd
+├── 03_benchmarking
+│   ├── benchmarking.Rmd
+│   └── results
 └── utils.R
 ```
 ## Required packages 
