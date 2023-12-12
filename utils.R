@@ -1,4 +1,4 @@
-###################### Preparation of single-cell reference ######################
+###################### Preparation of input to deconvolution ######################
 ###################### Get pseudo-bulk counts from single-cell reference ######################
 # The function returns a list including: 
 # [[1]] matrix of summed counts (bulk.counts)  
@@ -31,7 +31,6 @@ GetPsedoBulkCounts <- function(seurat, cluster_var, sample_var) {
 
 ###################### MuSiC ######################
 ###################### Benchmark MuSiC direct mode ######################
-
 BenchmarkMusicDirect <- function(L_bulk, L_markers, sc.sce, clusters, samples) {
   
   L_final <- list()
@@ -215,8 +214,8 @@ BenchmarkMusicRecursive <- function(L_bulk, L_markers, L_clusters.type, sc.sce, 
 
 }
 
-###################### BisqueRNA ######################
-###################### Benchmark BisqueRNA (reference-based decomposition) ######################
+###################### Bisque ######################
+###################### Benchmark Bisque (reference-based decomposition) ######################
 BenchmarkBisqueRefBased <- function(L_bulk, sc.eset, L_markers) {
   
   L_final <- list()
@@ -286,11 +285,26 @@ MixMatrixPB <- function(pb_counts) {
   mix_matrix <- cbind(rownames(mix_matrix), mix_matrix)
   colnames(mix_matrix)[1] <- "gene_name"
   return(mix_matrix)
-} 
+}
+
+###################### Wrap CIBERSORTx output ######################
+WrapCibersortx <- function(path) {
+  files <- list.files(path = path, pattern = "CIBERSORTx_")
+  L_save <- list()
+  for (f in files) {
+    x <- read_delim(paste0(path, f), show_col_types = FALSE)
+    x <- x[,1:(ncol(x)-4)] %>%
+      column_to_rownames(var = "Mixture")
+    x <- as.matrix(x/rowSums(x)) # normalize to 1
+    L_save[[f]] <- x
+  }
+  names(L_save) <- gsub(".txt*$", "", basename(files))
+  return(L_save)
+}
 
 ###################### Benchmarking ######################
-###################### Load results from different methods ######################
-LoadDeconvolutionResults <- function(path) {
+###################### Wrap up results from different methods ######################
+WrapDeconvolutionResults <- function(path) {
   files <-  paste0(path, list.files(path, pattern = "proportions"))
   L_prop <- lapply(files, function(x){
     res <- readRDS(x)
